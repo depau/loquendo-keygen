@@ -1,0 +1,8 @@
+# Research artifacts (original engine binaries, Wine prefixes, installers) —
+# copyrighted Loquendo material, never published.
+work/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
