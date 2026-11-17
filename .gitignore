@@ -8,3 +8,7 @@ dist/
 *.egg-info/
 *.pyc
 .venv/
+
+# Registry files (licenses)
+*.reg
+
