@@ -4,5 +4,7 @@ work/
 
 # Python
 __pycache__/
+dist/
+*.egg-info/
 *.pyc
 .venv/

@@ -2,7 +2,7 @@
 
 Research oracle: maps the original LoqTTS7.dll at its preferred base
 0x10000000 and calls the real crypto functions, so algorithmic questions
-about the clean-room port in keygen/loqkey.py can be settled against the
+about the clean-room port in src/loqkeygen/core.py can be settled against the
 original binary:
   - 0x10001570  DES key schedule (edx=8-byte key ptr, ecx=schedule out ptr,
     32 dwords)

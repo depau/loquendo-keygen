@@ -3,8 +3,8 @@
 Working notes, evidence-first. All algorithms below are re-derived from disassembly
 of the original binaries (clean-room: re-written from evidence, never pasted from
 a decompiler). Everything here is implemented and self-tested in
-`keygen/loqkey.py` (cipher, CRC, payload, Abil derivation) and
-`keygen/loqkeygen.py` (license generator). The emulation oracle used to settle
+the `loqkeygen` package (`src/loqkeygen/`: cipher, CRC, payload, Abil
+derivation, and the CLI). The emulation oracle used to settle
 ambiguities during RE is `research/loqemu.py`.
 
 Status: **fully cracked**. The keygen reproduces a shipped known-good license
@@ -72,12 +72,12 @@ Genuine 16-round DES structure (8 iterations × 2 Feistel half-rounds, S-boxes
 
 - Round r (r=0..7) uses key dwords `KS[e+3], KS[e+2], KS[e+1], KS[e]` with
   `e = 28 − 4r` — i.e. **consecutive quads walked downward through the 32-dword
-  key schedule** (schedule = constant; lifted verbatim as `_KS` in loqkey.py).
+  key schedule** (schedule = constant; lifted verbatim as `_KS` in loqkeygen/core.py).
 - `F(x; kA,kB) = SP[kB^x] | SP[rol(kA^x, 28)]`; each of the two half-rounds per
   iteration is `x ^= F(y)` alternating registers.
 - IP/FP are involutions-with-recompute: invert by running the same SWAPMOVE step
   formulas in reverse order; only the final nibble step and IP step5 need special
-  algebra (derived and validated in loqkey.py).
+  algebra (derived and validated in loqkeygen/core.py).
 - Verification: 200 random round-trips; known-good Code decrypts to a meaningful
   payload; regenerated Code is byte-identical.
 
@@ -126,8 +126,8 @@ Two distinct B62 generators exist, both alphabet
    seed 0xC5, recurrence constants 0x13/0xC5, table @0x10096758 (same alphabet).
    Called from 0x10004000 (`***IGNORE***` handler, input 32 chars) via 0x10002fb0.
    Python port oracle-verified via Unicorn emulation
-   (`gen("7Aw8Bi9Cn1De2Eu3") == "Rrhnq7sk40jUILBB"`); see loqkey.py docstring
-   history / git for the port.
+   (`gen("7Aw8Bi9Cn1De2Eu3") == "Rrhnq7sk40jUILBB"`). Not needed by the
+   keygen: Patch.exe-style licenses validate against the GP6 generator above.
 
 So **Abil is purely machine+name binding** — it carries no voice/channel info.
 
@@ -177,7 +177,7 @@ Wow6432Node on x64): Code, Code2="", Code3="", PIK="", TTSVersion="7",
 Channels="256", Abil (the GP6 string), Name (raw padded username). The tool also
 deletes `HKLM/HKCU\SOFTWARE\Microsoft\SystemID` first.
 
-Everything above is re-implemented in `keygen/loqkeygen.py`; the generated
+Everything above is re-implemented in the `loqkeygen` package; the generated
 .reg matches Patch.exe's semantics exactly (Code/Abil/Name cross-validated
 against the shipped known-good tuple).
 

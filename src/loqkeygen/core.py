@@ -1,25 +1,5 @@
-"""Loquendo TTS 7 'UNIFIED Licensing SW' — license Code crypto, pure Python.
+"""Crypto primitives: cipher, CRC, scatter/gather, payload, Abil derivation."""
 
-Clean-room port from disassembly of the original binaries (LoqTTS7.dll block
-cipher 0x100012b0/0x10001360, key schedule 0x10001570; LTTS7Util.dll
-ELQCrcGetChecksum 0x4640; Patch.exe generator side). Validated byte-for-byte
-against a known-good shipped license Code, plus 200 random round-trips.
-
-Layout:
-  Code  = 144 uppercase hex chars (9 blocks x 8 ciphertext bytes, scattered)
-        + 8-char uppercase CRC hex (%08X).
-  Scatter: ciphertext byte j (0..7) of block k (0..8) is encoded at hex pair
-        p = 0x48*i + 0x12*m + 2*k   where i,m = divmod(j, 4)
-  Payload plaintext: 9 slots x 8 bytes (see make_payload for known fields).
-  CRC: nibble-table CRC32 (poly 0xEDB88320 reflected) over the 144 ASCII hex
-        chars, seed 0x14 (Code) / 0x13 (Code2).
-
-Cipher: 8-round Feistel-ish DES variant. IP/FP are SWAPMOVE permutation nets;
-round r uses key dwords KS[31-4r : 28-4r] (k1..k4 = KS[e+3],KS[e+2],KS[e+1],
-KS[e] with e = 28-4r); F(x; kA,kB) = SP-lookup of (kB^x) OR SP-lookup of
-rol(kA^x, 28); rounds: ebx ^= F(eax), then eax ^= F(ebx).
-Key: 07 1E C6 54 B7 01 7E 53 (schedule is constant, lifted below).
-"""
 import struct
 
 _M32 = 0xFFFFFFFF
@@ -260,6 +240,7 @@ def make_payload(name, abil, expiry="99999999"):
       slots 5,8 = the 16-char Abil string (voice abilities) split in half;
       slot 7 = 0xFF (unused).
     """
+    name = pad_name(name)
     nb = name.encode()
     unit = nb + b"\x00"
     field = bytearray(32)
@@ -302,16 +283,25 @@ def _srem(a, b):
     return a - q * b
 
 
+def pad_name(user):
+    """'+'-pad usernames shorter than 7 chars to exactly 7 (Patch.exe 0x453703).
+
+    The padding propagates to the interleave seed, the payload name field,
+    and the registry Name value. Idempotent for names >= 7 chars.
+    """
+    return user + "+" * (7 - len(user)) if len(user) < 7 else user
+
+
 def interleave(mac, user):
     """44-char MachineID seed: MAC/user interleave (Patch.exe FUN_00452a38).
-
     MAC is the 17-char "XX:XX:..." string. Per group EBP in (1,4,7,10,13,16):
     dest[EBP-1],dest[EBP] = MAC[EBP-1],MAC[EBP]; dest[EBP+1] = user[k].
+    The username is '+'-padded to 7 chars first (see pad_name).
     Tail: user[6:] fills dest[18..43] until its NUL (which terminates the string;
     unfilled dest tail stays '_' but is never reached). Returns the NUL-terminated
     length, i.e. min(18 + len(user) - 6, 44) chars.
     """
-    assert len(mac) == 17
+    user = pad_name(user)
     d = ["_"] * 44
     k = 0
     for ebp in (1, 4, 7, 10, 13, 16):
@@ -362,8 +352,7 @@ def make_name_field(name):
     registry Name and the cyclic field carry the padding); then name+"\\0"
     repeats at stride len+1, byte 31 NUL.
     """
-    if len(name) < 7:
-        name = name + "+" * (7 - len(name))
+    name = pad_name(name)
     field = bytearray(32)
     unit = name.encode() + b"\x00"
     off = 0
@@ -373,23 +362,3 @@ def make_name_field(name):
         off += len(unit)
     field[31] = 0
     return bytes(field)
-
-
-
-
-_KNOWN_GOOD = ("D2FCEFB9875BAF17AF2242B47077E3191219A72AFDBC3CFF8CD68C8811FEEE0B"
-               "6D489E482514244C13B4313D3148F1C355B63A52A652761292A3CDCED759D77A"
-               "E77BBA3DECA1D9A100001556")
-
-if __name__ == "__main__":
-    pt = decrypt_code(_KNOWN_GOOD)
-    print("known-good payload:", pt.hex())
-    print(repr(pt))
-    # Full generative path: (MAC, username) -> Abil -> payload -> Code
-    abil = make_abil("7A:8B:9C:1D:2E:3F", "wineuser")
-    print("derived Abil      :", abil)
-    assert abil == "IT192MU2NQk0YIa6", abil
-    regen = encrypt_code(make_payload("wineuser", abil))
-    print("regenerated Code  :", regen)
-    print("MATCH             :", regen == _KNOWN_GOOD)
-    assert regen == _KNOWN_GOOD

@@ -13,18 +13,28 @@ original engine as a reference oracle.
 
 | Path | Content |
 |---|---|
-| `keygen/loqkey.py` | self-testing license crypto library: DES-variant cipher (hardcoded key), scatter/gather, nibble-CRC32, 72-byte payload layout, MAC/username interleave, GP6 base62 Abil derivation |
-| `keygen/loqkeygen.py` | the keygen CLI — generates a working `.reg` license |
+| `src/loqkeygen/` | the keygen package — pure-Python stdlib-only implementation, installable via `uv`/pip |
 | `research/loqemu.py` | Unicorn-based emulation harness used as an oracle against the original `LoqTTS7.dll` during reverse engineering (needs the original DLL, not distributed here) |
 | `RESEARCH.md` | complete reverse-engineering notes: cipher, key schedule, payload slots, Abil derivation, engine validation path, expiry semantics |
 | `work/` | gitignored: original engine binaries, Wine prefix, activation tools used as research inputs |
 
 ## Usage
 
+No runtime dependencies (Python ≥ 3.9, stdlib only). With [uv](https://docs.astral.sh/uv/):
+
 ```sh
-./keygen/loqkeygen.py --mac 52:54:00:12:34:56 --user keygen-test -o license.reg
+uv run loqkeygen --mac 52:54:00:12:34:56 --user keygen-test -o license.reg
 wine reg import license.reg     # into your engine's Wine prefix
 ```
+
+Or, as a plain install (any pip-capable environment):
+
+```sh
+pip install .
+loqkeygen --mac 52:54:00:12:34:56 --user keygen-test -o license.reg
+```
+
+As a library: `from loqkeygen import make_abil, encrypt_code, make_payload`.
 
 Values written under
 `HKLM\Software\Wow6432Node\Loquendo\LTTS7\LicenseCode`:
@@ -51,7 +61,7 @@ original tool); the padded name is what must match the Windows login name.
 
 ## Verification
 
-- Crypto: `python3 keygen/loqkey.py` — regenerates the known-good Code
+- Crypto: `uv run pytest` — regenerates the known-good Code
   (`MAC 7A:8B:9C:1D:2E:3F`, user `wineuser`) byte-for-byte, plus 200 random
   round-trips.
 - End-to-end: a license for a *fresh* MAC/user (`52:54:00:12:34:56`,
